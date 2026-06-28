@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Model T Gauge">
+<title>Model T Road Gauge</title>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #1a0f00; font-family: 'Special Elite', serif; }
+.app { width: 100%; max-width: 420px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 14px 14px 20px; position: relative; overflow: hidden; transition: background 0.5s ease; }
+.app::before { content: ''; position: absolute; inset: 0; background-image: repeating-linear-gradient(90deg, var(--grain-h) 0px, var(--grain-h) 2px, transparent 2px, transparent 20px), repeating-linear-gradient(0deg, var(--grain-v) 0px, var(--grain-v) 2px, transparent 2px, transparent 30px); pointer-events: none; z-index: 0; }
+.app > * { position: relative; z-index: 1; }
+.title { font-size: 12px; letter-spacing: 4px; text-transform: uppercase; margin-bottom: 4px; transition: color 0.4s; }
+.subtitle { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; transition: color 0.4s; }
+.copper-divider { width: 80%; height: 1px; margin-bottom: 10px; transition: background 0.4s; }
+.corner-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+.gauge-card { border-radius: 10px; padding: 9px 8px; text-align: center; position: relative; overflow: hidden; transition: background 0.4s, border-color 0.4s; border: 1.5px solid #6a3e0e; }
+.gauge-label { font-size: 8px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; transition: color 0.4s; }
+.gauge-value { font-family: 'Orbitron', monospace; font-size: 20px; font-weight: 700; line-height: 1; transition: color 0.4s; }
+.gauge-unit { font-size: 8px; letter-spacing: 1.5px; margin-top: 3px; transition: color 0.4s; }
+.weather-icon { font-size: 20px; line-height: 1; margin: 2px 0; }
+.weather-desc { font-size: 9px; letter-spacing: 1px; margin-top: 2px; min-height: 12px; transition: color 0.4s; }
+.sub-info { font-size: 8px; margin-top: 2px; transition: color 0.4s; }
+.compass-dir { font-family: 'Orbitron', monospace; font-size: 20px; font-weight: 700; line-height: 1; transition: color 0.4s; }
+.compass-deg { font-size: 9px; letter-spacing: 1.5px; margin-top: 3px; transition: color 0.4s; }
+.speedo-wrapper { position: relative; width: 240px; height: 240px; margin: 6px 0; }
+.speedo-svg { width: 240px; height: 240px; }
+.digital-readout { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; }
+.digital-mph { font-family: 'Orbitron', monospace; font-size: 38px; font-weight: 700; line-height: 1; min-width: 80px; text-align: center; transition: color 0.4s; }
+.digital-unit { font-size: 10px; letter-spacing: 4px; text-transform: uppercase; margin-top: 2px; transition: color 0.4s; }
+
+/* Road info bar */
+.road-bar { width: 100%; border-radius: 10px; border: 1.5px solid #6a3e0e; padding: 8px 12px; margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: background 0.4s, border-color 0.4s; }
+.road-left { display: flex; flex-direction: column; align-items: flex-start; flex: 1; min-width: 0; }
+.road-label { font-size: 8px; letter-spacing: 2px; text-transform: uppercase; transition: color 0.4s; margin-bottom: 3px; }
+.road-name { font-family: 'Special Elite', serif; font-size: 13px; line-height: 1.2; transition: color 0.4s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.speed-limit-badge { display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; border: 2px solid currentColor; width: 46px; min-width: 46px; padding: 4px 2px; transition: color 0.4s, border-color 0.4s; flex-shrink: 0; }
+.sl-top { font-size: 7px; letter-spacing: 1.5px; text-transform: uppercase; line-height: 1; }
+.sl-num { font-family: 'Orbitron', monospace; font-size: 18px; font-weight: 700; line-height: 1; }
+.sl-unit { font-size: 7px; letter-spacing: 1px; text-transform: uppercase; line-height: 1; margin-top: 1px; }
+
+.status-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: #444; transition: background 0.4s, box-shadow 0.4s; }
+.status-dot.active { background: #27ae60; box-shadow: 0 0 8px #27ae60; }
+.status-dot.error { background: #c0392b; box-shadow: 0 0 6px #c0392b; }
+.status-text { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; transition: color 0.4s; }
+.theme-btn { margin-top: 10px; display: flex; align-items: center; gap: 7px; padding: 7px 16px; border-radius: 20px; cursor: pointer; font-family: 'Special Elite', serif; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; border: none; transition: background 0.4s, color 0.4s, border-color 0.4s; }
+.theme-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.78); z-index: 100; align-items: flex-end; justify-content: center; }
+.theme-overlay.open { display: flex; }
+.theme-panel { width: 100%; max-width: 420px; border-radius: 16px 16px 0 0; padding: 20px 16px 32px; transition: background 0.3s; }
+.theme-panel-title { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; text-align: center; margin-bottom: 16px; transition: color 0.3s; }
+.theme-swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; padding: 8px 4px; border-radius: 10px; border: 2px solid transparent; transition: border-color 0.3s, transform 0.15s; }
+.swatch:active { transform: scale(0.93); }
+.swatch.selected { border-color: rgba(255,255,255,0.5); }
+.swatch-dot { width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.15); }
+.swatch-name { font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: #aaa; text-align: center; line-height: 1.3; white-space: pre-line; }
+.theme-close { display: block; margin: 18px auto 0; padding: 8px 28px; border-radius: 20px; cursor: pointer; font-family: 'Special Elite', serif; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #aaa; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="title" id="t-title">Model T Road Gauge</div>
+  <div class="subtitle" id="t-subtitle">Est. 1916 &nbsp;&middot;&nbsp; Ford Motor Co.</div>
+  <div class="copper-divider" id="t-divider"></div>
+
+  <div class="corner-grid" style="margin-bottom:8px;">
+    <div class="gauge-card" id="gc1">
+      <div class="gauge-label">Temperature</div>
+      <div class="gauge-value" id="temp">--</div>
+      <div class="gauge-unit">°F</div>
+      <div class="sub-info" id="humidity"></div>
+    </div>
+    <div class="gauge-card" id="gc2">
+      <div class="gauge-label">Conditions</div>
+      <div class="weather-icon" id="weather-icon">⏳</div>
+      <div class="weather-desc" id="weather-desc">Fetching...</div>
+      <div class="sub-info" id="wind-speed"></div>
+    </div>
+  </div>
+
+  <div class="speedo-wrapper">
+    <svg class="speedo-svg" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="bgGrad" cx="50%" cy="60%" r="55%">
+          <stop id="grad-stop1" offset="0%" stop-color="#281806"/>
+          <stop id="grad-stop2" offset="100%" stop-color="#0a0600"/>
+        </radialGradient>
+      </defs>
+      <circle cx="130" cy="130" r="126" fill="url(#bgGrad)" id="s-outer" stroke="#8a5a14" stroke-width="3.5"/>
+      <circle cx="130" cy="130" r="122" fill="none" id="s-ring1" stroke="#c8860a" stroke-width="0.8" opacity="0.6"/>
+      <circle cx="130" cy="130" r="119" fill="none" id="s-ring2" stroke="#5a3a0a" stroke-width="1"/>
+      <circle cx="130" cy="130" r="115" fill="none" id="s-ring3" stroke="#3a2208" stroke-width="0.5"/>
+      <g id="ticks"></g>
+      <path id="speed-arc" d="" fill="none" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+      <line id="needle-shadow" x1="130" y1="130" x2="130" y2="35" stroke="rgba(0,0,0,0.35)" stroke-width="4" stroke-linecap="round"/>
+      <line id="needle" x1="130" y1="130" x2="130" y2="35" stroke="#d04010" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="130" cy="130" r="10" id="s-cap" fill="#3a2208" stroke="#c8860a" stroke-width="2"/>
+      <circle cx="130" cy="130" r="4" id="s-cap2" fill="#e8a020"/>
+      <circle cx="130" cy="130" r="2" fill="#f0c040"/>
+    </svg>
+    <div class="digital-readout">
+      <div class="digital-mph" id="speed-digital">0</div>
+      <div class="digital-unit" id="t-mph-unit">mph</div>
+    </div>
+  </div>
+
+  <div class="corner-grid">
+    <div class="gauge-card" id="gc3">
+      <div class="gauge-label">Altitude</div>
+      <div class="gauge-value" id="altitude">--</div>
+      <div class="gauge-unit">feet</div>
+    </div>
+    <div class="gauge-card" id="gc4">
+      <div class="gauge-label">Heading</div>
+      <div class="compass-dir" id="compass-dir">--</div>
+      <div class="compass-deg" id="compass-deg">---°</div>
+    </div>
+  </div>
+
+  <!-- Road info bar -->
+  <div class="road-bar" id="road-bar">
+    <div class="road-left">
+      <div class="road-label" id="road-label">Current Road</div>
+      <div class="road-name" id="road-name">Locating...</div>
+    </div>
+    <div class="speed-limit-badge" id="sl-badge">
+      <div class="sl-top">Speed</div>
+      <div class="sl-num" id="sl-num">?</div>
+      <div class="sl-unit">mph</div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot" id="gps-dot"></div>
+    <div class="status-text" id="status-text">Awaiting GPS Signal</div>
+  </div>
+  <button class="theme-btn" id="theme-btn" onclick="openThemes()">
+    <span>🎨</span><span>Change Theme</span>
+  </button>
+</div>
+
+<div class="theme-overlay" id="theme-overlay" onclick="handleOverlayClick(event)">
+  <div class="theme-panel" id="theme-panel">
+    <div class="theme-panel-title" id="tp-title">Choose Your Theme</div>
+    <div class="theme-swatches" id="swatches"></div>
+    <button class="theme-close" onclick="closeThemes()">Close</button>
+  </div>
+</div>
+
+<script>
+const THEMES = [
+  { id:'copper', name:'Copper\nWood', dot:['#c8860a','#3a1a00'], bg:'#1a0f00', grain_h:'rgba(120,70,20,0.05)', grain_v:'rgba(120,70,20,0.04)', title:'#c8860a', subtitle:'#5a3510', divider:'linear-gradient(90deg,transparent,#7a4e12,rgba(200,134,10,0.5),#7a4e12,transparent)', card_bg:'radial-gradient(ellipse at top left,#2a1a06 0%,#0e0700 100%)', card_border:'#6a3e0e', label:'#7a5025', value:'#e8a020', unit:'#7a5025', subdesc:'#7a5525', subinfo:'#5a3d18', needle:'#d04010', arc:'#c8300a', dial_g1:'#281806', dial_g2:'#0a0600', dial_outer:'#8a5a14', ring1:'#c8860a', ring2:'#5a3a0a', ring3:'#3a2208', cap_fill:'#3a2208', cap_stroke:'#c8860a', cap2:'#e8a020', tick_major:'#c8860a', tick_minor5:'#7a4e12', tick_faint:'#3a2208', tick_label:'#9a6820', speed_color:'#f0b030', mph_unit:'#8a6030', status:'#5a4020', btn_bg:'#2a1a06', btn_color:'#c8860a', btn_border:'#6a3e0e', panel_bg:'#1e1206', panel_title:'#c8860a', road_bg:'radial-gradient(ellipse at top left,#2a1a06 0%,#0e0700 100%)', road_border:'#6a3e0e', road_label:'#7a5025', road_name:'#e8a020', sl_color:'#e8a020' },
+  { id:'midnight', name:'Midnight\nBlue', dot:['#4a8fe8','#0a1a2e'], bg:'#080e1a', grain_h:'rgba(40,80,160,0.05)', grain_v:'rgba(40,80,160,0.04)', title:'#4a8fe8', subtitle:'#1e3a60', divider:'linear-gradient(90deg,transparent,#1e3a60,rgba(74,143,232,0.5),#1e3a60,transparent)', card_bg:'radial-gradient(ellipse at top left,#0d1e35 0%,#050a12 100%)', card_border:'#1e3a60', label:'#2a5080', value:'#4a8fe8', unit:'#2a5080', subdesc:'#3a6090', subinfo:'#1e3a60', needle:'#e84a4a', arc:'#e84a4a', dial_g1:'#0d1e35', dial_g2:'#050a12', dial_outer:'#1e3a60', ring1:'#4a8fe8', ring2:'#1e3a60', ring3:'#0d1e35', cap_fill:'#0d1e35', cap_stroke:'#4a8fe8', cap2:'#4a8fe8', tick_major:'#4a8fe8', tick_minor5:'#1e3a60', tick_faint:'#0d1e35', tick_label:'#2a5080', speed_color:'#80bfff', mph_unit:'#2a5080', status:'#1e3a60', btn_bg:'#0d1e35', btn_color:'#4a8fe8', btn_border:'#1e3a60', panel_bg:'#0a1628', panel_title:'#4a8fe8', road_bg:'radial-gradient(ellipse at top left,#0d1e35 0%,#050a12 100%)', road_border:'#1e3a60', road_label:'#2a5080', road_name:'#4a8fe8', sl_color:'#4a8fe8' },
+  { id:'forest', name:'Forest\nGreen', dot:['#4ab870','#0a1e0f'], bg:'#090f0b', grain_h:'rgba(30,90,50,0.06)', grain_v:'rgba(30,90,50,0.04)', title:'#4ab870', subtitle:'#1a4228', divider:'linear-gradient(90deg,transparent,#1a4228,rgba(74,184,112,0.5),#1a4228,transparent)', card_bg:'radial-gradient(ellipse at top left,#0d2015 0%,#050e08 100%)', card_border:'#1a4228', label:'#235c35', value:'#4ab870', unit:'#235c35', subdesc:'#2e6640', subinfo:'#1a4228', needle:'#e8a020', arc:'#e8a020', dial_g1:'#0d2015', dial_g2:'#050e08', dial_outer:'#1a4228', ring1:'#4ab870', ring2:'#1a4228', ring3:'#0d2015', cap_fill:'#0d2015', cap_stroke:'#4ab870', cap2:'#4ab870', tick_major:'#4ab870', tick_minor5:'#1a4228', tick_faint:'#0d2015', tick_label:'#235c35', speed_color:'#80e8a0', mph_unit:'#235c35', status:'#1a4228', btn_bg:'#0d2015', btn_color:'#4ab870', btn_border:'#1a4228', panel_bg:'#090f0b', panel_title:'#4ab870', road_bg:'radial-gradient(ellipse at top left,#0d2015 0%,#050e08 100%)', road_border:'#1a4228', road_label:'#235c35', road_name:'#4ab870', sl_color:'#4ab870' },
+  { id:'crimson', name:'Crimson\nRed', dot:['#e84a4a','#1e0808'], bg:'#0f0606', grain_h:'rgba(120,20,20,0.06)', grain_v:'rgba(120,20,20,0.04)', title:'#e84a4a', subtitle:'#4a1010', divider:'linear-gradient(90deg,transparent,#4a1010,rgba(232,74,74,0.5),#4a1010,transparent)', card_bg:'radial-gradient(ellipse at top left,#220c0c 0%,#0a0404 100%)', card_border:'#4a1010', label:'#6a2020', value:'#e84a4a', unit:'#6a2020', subdesc:'#7a2828', subinfo:'#4a1818', needle:'#ffd04a', arc:'#ffd04a', dial_g1:'#220c0c', dial_g2:'#0a0404', dial_outer:'#4a1010', ring1:'#e84a4a', ring2:'#4a1010', ring3:'#220c0c', cap_fill:'#220c0c', cap_stroke:'#e84a4a', cap2:'#e84a4a', tick_major:'#e84a4a', tick_minor5:'#4a1010', tick_faint:'#220c0c', tick_label:'#6a2020', speed_color:'#ff8080', mph_unit:'#6a2020', status:'#4a1818', btn_bg:'#220c0c', btn_color:'#e84a4a', btn_border:'#4a1010', panel_bg:'#140808', panel_title:'#e84a4a', road_bg:'radial-gradient(ellipse at top left,#220c0c 0%,#0a0404 100%)', road_border:'#4a1010', road_label:'#6a2020', road_name:'#e84a4a', sl_color:'#e84a4a' },
+  { id:'ivory', name:'Ivory\n& Black', dot:['#5a4820','#f0e8cc'], bg:'#f5f0e0', grain_h:'rgba(100,90,60,0.04)', grain_v:'rgba(100,90,60,0.03)', title:'#3a3020', subtitle:'#8a7850', divider:'linear-gradient(90deg,transparent,#8a7850,rgba(100,85,40,0.5),#8a7850,transparent)', card_bg:'radial-gradient(ellipse at top left,#ede8d5 0%,#dfd8c0 100%)', card_border:'#b8a878', label:'#8a7850', value:'#3a3020', unit:'#8a7850', subdesc:'#6a5830', subinfo:'#9a8858', needle:'#8a2010', arc:'#8a2010', dial_g1:'#ede8d5', dial_g2:'#ccc4a8', dial_outer:'#b8a878', ring1:'#8a7850', ring2:'#b8a878', ring3:'#d0c8a8', cap_fill:'#ede8d5', cap_stroke:'#8a7850', cap2:'#3a3020', tick_major:'#6a5830', tick_minor5:'#b8a878', tick_faint:'#d0c8a8', tick_label:'#6a5830', speed_color:'#3a3020', mph_unit:'#8a7850', status:'#8a7850', btn_bg:'#ede8d5', btn_color:'#3a3020', btn_border:'#b8a878', panel_bg:'#ede8d5', panel_title:'#3a3020', road_bg:'radial-gradient(ellipse at top left,#ede8d5 0%,#dfd8c0 100%)', road_border:'#b8a878', road_label:'#8a7850', road_name:'#3a3020', sl_color:'#3a3020' }
+];
+
+let currentThemeId = 'copper';
+let currentTheme = THEMES[0];
+
+const MAX_MPH = 45, CX = 130, CY = 130, R_NEEDLE = 92;
+const START_DEG = -220, END_DEG = 40, RANGE = END_DEG - START_DEG;
+
+function degToRad(d) { return d * Math.PI / 180; }
+function px(cx, r, deg) { return cx + r * Math.sin(degToRad(deg)); }
+function py(cy, r, deg) { return cy - r * Math.cos(degToRad(deg)); }
+
+function drawTicks(th) {
+  const g = document.getElementById('ticks');
+  g.innerHTML = '';
+  for (let mph = 0; mph <= MAX_MPH; mph++) {
+    const frac = mph / MAX_MPH;
+    const angle = START_DEG + frac * RANGE;
+    const isMajor = mph % 10 === 0;
+    const isMinor5 = mph % 5 === 0 && !isMajor;
+    const r1 = isMajor ? 96 : isMinor5 ? 100 : 103;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', px(CX, r1, angle).toFixed(2));
+    line.setAttribute('y1', py(CY, r1, angle).toFixed(2));
+    line.setAttribute('x2', px(CX, 108, angle).toFixed(2));
+    line.setAttribute('y2', py(CY, 108, angle).toFixed(2));
+    line.setAttribute('stroke', isMajor ? th.tick_major : isMinor5 ? th.tick_minor5 : th.tick_faint);
+    line.setAttribute('stroke-width', isMajor ? '2' : '0.8');
+    g.appendChild(line);
+    if (isMajor) {
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', px(CX, 82, angle).toFixed(2));
+      text.setAttribute('y', (py(CY, 82, angle) + 4).toFixed(2));
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('font-size', '9');
+      text.setAttribute('fill', th.tick_label);
+      text.setAttribute('font-family', 'Orbitron, monospace');
+      text.textContent = mph;
+      g.appendChild(text);
+    }
+  }
+}
+
+function setNeedle(mph) {
+  const clamped = Math.min(Math.max(mph, 0), MAX_MPH);
+  const angle = START_DEG + (clamped / MAX_MPH) * RANGE;
+  const x2 = px(CX, R_NEEDLE, angle).toFixed(2);
+  const y2 = py(CY, R_NEEDLE, angle).toFixed(2);
+  document.getElementById('needle').setAttribute('x2', x2);
+  document.getElementById('needle').setAttribute('y2', y2);
+  document.getElementById('needle-shadow').setAttribute('x2', (parseFloat(x2)+1).toFixed(2));
+  document.getElementById('needle-shadow').setAttribute('y2', (parseFloat(y2)+1).toFixed(2));
+  document.getElementById('speed-digital').textContent = Math.round(clamped);
+  if (clamped > 0) {
+    const arcR = 108;
+    const x1 = px(CX, arcR, START_DEG).toFixed(2), y1 = py(CY, arcR, START_DEG).toFixed(2);
+    const xe = px(CX, arcR, angle).toFixed(2), ye = py(CY, arcR, angle).toFixed(2);
+    const la = (angle - START_DEG > 180) ? 1 : 0;
+    document.getElementById('speed-arc').setAttribute('d', `M ${x1} ${y1} A ${arcR} ${arcR} 0 ${la} 1 ${xe} ${ye}`);
+  } else {
+    document.getElementById('speed-arc').setAttribute('d', '');
+  }
+}
+
+function applyTheme(th) {
+  const app = document.getElementById('app');
+  app.style.background = th.bg;
+  app.style.setProperty('--grain-h', th.grain_h);
+  app.style.setProperty('--grain-v', th.grain_v);
+  set('t-title','color',th.title);
+  set('t-subtitle','color',th.subtitle);
+  document.getElementById('t-divider').style.background = th.divider;
+  ['gc1','gc2','gc3','gc4'].forEach(id => {
+    const el = document.getElementById(id);
+    el.style.background = th.card_bg;
+    el.style.borderColor = th.card_border;
+    el.querySelectorAll('.gauge-label').forEach(e => e.style.color = th.label);
+    el.querySelectorAll('.gauge-value,.compass-dir').forEach(e => e.style.color = th.value);
+    el.querySelectorAll('.gauge-unit,.compass-deg').forEach(e => e.style.color = th.unit);
+    el.querySelectorAll('.weather-desc').forEach(e => e.style.color = th.subdesc);
+    el.querySelectorAll('.sub-info').forEach(e => e.style.color = th.subinfo);
+  });
+  // Road bar
+  const rb = document.getElementById('road-bar');
+  rb.style.background = th.road_bg;
+  rb.style.borderColor = th.road_border;
+  set('road-label','color', th.road_label);
+  set('road-name','color', th.road_name);
+  const slb = document.getElementById('sl-badge');
+  slb.style.color = th.sl_color;
+  slb.style.borderColor = th.sl_color;
+  slb.querySelectorAll('.sl-top,.sl-num,.sl-unit').forEach(e => e.style.color = th.sl_color);
+
+  document.getElementById('grad-stop1').setAttribute('stop-color', th.dial_g1);
+  document.getElementById('grad-stop2').setAttribute('stop-color', th.dial_g2);
+  document.getElementById('s-outer').setAttribute('stroke', th.dial_outer);
+  document.getElementById('s-ring1').setAttribute('stroke', th.ring1);
+  document.getElementById('s-ring2').setAttribute('stroke', th.ring2);
+  document.getElementById('s-ring3').setAttribute('stroke', th.ring3);
+  document.getElementById('s-cap').setAttribute('fill', th.cap_fill);
+  document.getElementById('s-cap').setAttribute('stroke', th.cap_stroke);
+  document.getElementById('s-cap2').setAttribute('fill', th.cap2);
+  document.getElementById('needle').setAttribute('stroke', th.needle);
+  document.getElementById('speed-arc').setAttribute('stroke', th.arc);
+  drawTicks(th);
+  set('speed-digital','color',th.speed_color);
+  set('t-mph-unit','color',th.mph_unit);
+  set('status-text','color',th.status);
+  const btn = document.getElementById('theme-btn');
+  btn.style.background = th.btn_bg;
+  btn.style.color = th.btn_color;
+  btn.style.border = `1.5px solid ${th.btn_border}`;
+  document.getElementById('theme-panel').style.background = th.panel_bg;
+  set('tp-title','color',th.panel_title);
+}
+
+function set(id, prop, val) { const el = document.getElementById(id); if (el) el.style[prop] = val; }
+
+function buildSwatches() {
+  const container = document.getElementById('swatches');
+  container.innerHTML = '';
+  THEMES.forEach(th => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch' + (th.id === currentThemeId ? ' selected' : '');
+    sw.innerHTML = `<div class="swatch-dot" style="background:radial-gradient(circle at 35% 35%,${th.dot[0]},${th.dot[1]});"></div><div class="swatch-name">${th.name}</div>`;
+    sw.addEventListener('click', () => {
+      currentThemeId = th.id; currentTheme = th;
+      applyTheme(th);
+      document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+      sw.classList.add('selected');
+    });
+    container.appendChild(sw);
+  });
+}
+
+function openThemes()  { buildSwatches(); document.getElementById('theme-overlay').classList.add('open'); }
+function closeThemes() { document.getElementById('theme-overlay').classList.remove('open'); }
+function handleOverlayClick(e) { if (e.target === document.getElementById('theme-overlay')) closeThemes(); }
+
+function getCompassDir(deg) {
+  const d = ((deg % 360) + 360) % 360;
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(d / 22.5) % 16];
+}
+
+const WX_ICONS = {0:'☀️',1:'🌤',2:'⛅',3:'☁️',45:'🌫',48:'🌫',51:'🌦',53:'🌦',55:'🌧',61:'🌧',63:'🌧',65:'🌧',71:'❄️',73:'❄️',75:'❄️',80:'🌦',81:'🌦',82:'🌧',95:'⛈',96:'⛈',99:'⛈'};
+const WX_DESC = {0:'Clear skies',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',45:'Foggy',48:'Freezing fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',61:'Light rain',63:'Moderate rain',65:'Heavy rain',71:'Light snow',73:'Moderate snow',75:'Heavy snow',80:'Showers',81:'Showers',82:'Heavy showers',95:'Thunderstorm',96:'Thunderstorm',99:'Heavy storm'};
+
+function nearestKey(code, map) {
+  if (map[code] !== undefined) return map[code];
+  const keys = Object.keys(map).map(Number).sort((a,b)=>a-b);
+  let best = keys[0]; for (const k of keys) { if (k <= code) best = k; }
+  return map[best];
+}
+
+let weatherDone = false;
+async function fetchWeather(lat, lon) {
+  if (weatherDone) return; weatherDone = true;
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current_weather=true&hourly=relativehumidity_2m,windspeed_10m&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto&forecast_days=1`;
+    const res = await fetch(url); const data = await res.json(); const w = data.current_weather;
+    document.getElementById('temp').textContent = Math.round(w.temperature);
+    document.getElementById('weather-icon').textContent = nearestKey(w.weathercode, WX_ICONS);
+    document.getElementById('weather-desc').textContent = nearestKey(w.weathercode, WX_DESC);
+    document.getElementById('wind-speed').textContent = 'Wind ' + Math.round(w.windspeed) + ' mph';
+    if (data.hourly && data.hourly.relativehumidity_2m) {
+      document.getElementById('humidity').textContent = 'Humidity ' + data.hourly.relativehumidity_2m[0] + '%';
+    }
+  } catch(e) { document.getElementById('weather-desc').textContent = 'Weather unavailable'; }
+}
+
+// ── ROAD NAME + SPEED LIMIT ──────────────────────────────────────────────────
+let lastRoadFetch = 0;
+let lastRoadLat = null, lastRoadLon = null;
+const ROAD_FETCH_INTERVAL = 8000; // ms between road lookups
+const ROAD_MOVE_THRESHOLD = 0.0003; // ~30m
+
+async function fetchRoadInfo(lat, lon) {
+  const now = Date.now();
+  const moved = lastRoadLat === null ||
+    Math.abs(lat - lastRoadLat) > ROAD_MOVE_THRESHOLD ||
+    Math.abs(lon - lastRoadLon) > ROAD_MOVE_THRESHOLD;
+  if (!moved && now - lastRoadFetch < ROAD_FETCH_INTERVAL) return;
+  lastRoadFetch = now; lastRoadLat = lat; lastRoadLon = lon;
+
+  // 1. Reverse geocode for street name (Nominatim - free, no key needed)
+  try {
+    const geoUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}&format=json&zoom=17`;
+    const geoRes = await fetch(geoUrl, { headers: { 'Accept-Language': 'en' } });
+    const geoData = await geoRes.json();
+    const road = geoData.address && (geoData.address.road || geoData.address.highway || geoData.address.path || geoData.address.footway);
+    document.getElementById('road-name').textContent = road || 'Unknown Road';
+  } catch(e) {
+    document.getElementById('road-name').textContent = 'Road unavailable';
+  }
+
+  // 2. Speed limit via Overpass API (OpenStreetMap)
+  try {
+    const delta = 0.0008;
+    const bbox = `${(lat-delta).toFixed(6)},${(lon-delta).toFixed(6)},${(lat+delta).toFixed(6)},${(lon+delta).toFixed(6)}`;
+    const query = `[out:json][timeout:5];way["maxspeed"](${bbox});out tags 1;`;
+    const ovRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+    const ovData = await ovRes.json();
+    let limitText = '?';
+    if (ovData.elements && ovData.elements.length > 0) {
+      const raw = ovData.elements[0].tags.maxspeed;
+      if (raw) {
+        if (/^\d+$/.test(raw)) {
+          limitText = raw; // already mph or kph number
+        } else if (raw.toLowerCase().includes('mph')) {
+          limitText = raw.replace(/[^0-9]/g,'');
+        } else if (raw.toLowerCase().includes('knots')) {
+          limitText = Math.round(parseInt(raw) * 1.151) + '';
+        } else if (/^[0-9]+/.test(raw)) {
+          // likely kph — convert
+          const kph = parseInt(raw);
+          limitText = Math.round(kph * 0.621371) + '';
+        } else if (raw.toLowerCase() === 'none' || raw.toLowerCase() === 'unlimited') {
+          limitText = '∞';
+        } else {
+          limitText = '?';
+        }
+      }
+    }
+    document.getElementById('sl-num').textContent = limitText;
+  } catch(e) {
+    document.getElementById('sl-num').textContent = '?';
+  }
+}
+
+// ── GPS ──────────────────────────────────────────────────────────────────────
+function setGPSStatus(state) {
+  const dot = document.getElementById('gps-dot');
+  dot.className = 'status-dot' + (state==='active'?' active':state==='error'?' error':'');
+  document.getElementById('status-text').textContent = {active:'GPS Active',error:'GPS Error — Demo Mode',acquiring:'Acquiring Signal...'}[state]||state;
+}
+
+function startGPS() {
+  if (!navigator.geolocation) { setGPSStatus('error'); runDemo(); return; }
+  setGPSStatus('acquiring');
+  navigator.geolocation.watchPosition(pos => {
+    setGPSStatus('active');
+    const spd = pos.coords.speed != null && pos.coords.speed >= 0 ? pos.coords.speed * 2.23694 : 0;
+    setNeedle(spd);
+    if (pos.coords.altitude != null) document.getElementById('altitude').textContent = Math.round(pos.coords.altitude * 3.28084).toLocaleString();
+    if (pos.coords.heading != null && pos.coords.heading >= 0) {
+      document.getElementById('compass-dir').textContent = getCompassDir(pos.coords.heading);
+      document.getElementById('compass-deg').textContent = Math.round(pos.coords.heading) + '°';
+    }
+    fetchWeather(pos.coords.latitude, pos.coords.longitude);
+    fetchRoadInfo(pos.coords.latitude, pos.coords.longitude);
+  }, () => { setGPSStatus('error'); runDemo(); }, { enableHighAccuracy:true, maximumAge:1500, timeout:10000 });
+}
+
+function runDemo() {
+  let t = 0; setNeedle(0);
+  document.getElementById('altitude').textContent = '856';
+  document.getElementById('temp').textContent = '72';
+  document.getElementById('weather-icon').textContent = '⛅';
+  document.getElementById('weather-desc').textContent = 'Partly cloudy';
+  document.getElementById('wind-speed').textContent = 'Wind 8 mph';
+  document.getElementById('humidity').textContent = 'Humidity 58%';
+  document.getElementById('road-name').textContent = 'Demo Mode';
+  document.getElementById('sl-num').textContent = '35';
+  setInterval(() => {
+    t += 0.035;
+    setNeedle(Math.max(0, 20 + 16 * Math.sin(t) + 6 * Math.sin(t * 2.7)));
+    const h = (t * 25) % 360;
+    document.getElementById('compass-dir').textContent = getCompassDir(h);
+    document.getElementById('compass-deg').textContent = Math.round(h) + '°';
+  }, 80);
+}
+
+applyTheme(currentTheme);
+startGPS();
+</script>
+</body>
+</html>
